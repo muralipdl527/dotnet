@@ -5,6 +5,8 @@
 *swp
 bin
 obj
+# Ignore Visual Studio cache folder
+.vs/
 WebGoat/App_Data/*.txt
 *.sqlite*
 WebGoat/Configuration/*.config
