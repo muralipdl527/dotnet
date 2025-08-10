@@ -9,23 +9,19 @@ pipeline {
   }
 
   stages {
-    stage('Check .NET SDK') {
+    stage('Checkout') {
       steps {
-        sh '''
-          if ! command -v dotnet >/dev/null; then
-            echo "ERROR: dotnet SDK not found"; exit 1
-          fi
-          dotnet --version
-        '''
+        git branch: 'main',
+            credentialsId: 'YOUR_CREDENTIALS_ID',
+            url: 'https://github.com/muralipdl527/dotnet.git'
       }
     }
 
     stage('Set Permissions') {
-    steps {
+      steps {
         sh 'chmod +x ./bin/scancentral'
+      }
     }
-}
-
 
     stage('Prep ScanCentral CLI') {
       steps {
@@ -40,33 +36,24 @@ pipeline {
       }
     }
 
-    stage('Build .NET Project') {
-      steps {
-        sh '''
-          dotnet restore
-          dotnet build -c Release --no-restore
-        '''
-      }
-    }
-
     stage('Package for FoD') {
       steps {
         sh '''
-          rm -rf fod_package && mkdir -p fod_package/bin
+          rm -rf fod_package && mkdir -p fod_package
 
           echo "=== Copying source files ==="
           find . -type f -name "*.cs" | grep -v scancentral | xargs -I {} cp --parents {} fod_package/
 
           echo "=== Copying compiled binaries ==="
-          BIN_FILES=$(find . -type f -name "*.dll" -o -name "*.exe" -o -name "*.pdb" | grep -v scancentral || true)
+          BIN_FILES=$(find . -type f \( -name "*.dll" -o -name "*.exe" -o -name "*.pdb" \) | grep -v scancentral || true)
           if [ -n "$BIN_FILES" ]; then
               echo "$BIN_FILES" | xargs -I {} cp --parents {} fod_package/
           else
-              echo "No real binaries found! Build step might have failed."
+              echo "No binaries found in repo!"
               exit 1
           fi
 
-          "${SCANCENTRAL_PATH}" package -bt none -bf fod_package/*.csproj -o output.zip
+          "${SCANCENTRAL_PATH}" package -bt none -cp fod_package -o output.zip
           unzip -l output.zip | grep -E "\\.dll|\\.exe|\\.pdb" || true
         '''
       }
