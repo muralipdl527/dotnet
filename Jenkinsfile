@@ -9,24 +9,6 @@ pipeline {
   }
 
   stages {
-    stage('Check .NET SDK') {
-      steps {
-        sh '''
-          if ! command -v dotnet >/dev/null; then
-            echo "ERROR: dotnet SDK not found"
-            exit 1
-          fi
-          dotnet --version
-        '''
-      }
-    }
-
-    stage('Set Permissions') {
-      steps {
-        sh 'chmod +x ./bin/scancentral || true'
-      }
-    }
-
     stage('Prep ScanCentral CLI') {
       steps {
         sh '''
@@ -40,33 +22,27 @@ pipeline {
       }
     }
 
-    stage('Build .NET Project') {
-      steps {
-        sh '''
-          dotnet restore
-          dotnet build -c Release --no-restore
-        '''
-      }
-    }
-
     stage('Package for FoD') {
       steps {
         sh '''
-          rm -rf fod_package && mkdir -p fod_package
+          rm -rf fod_package && mkdir -p fod_package/bin
 
           echo "=== Copying source files ==="
           find . -type f -name "*.cs" | grep -v scancentral | xargs -I {} cp --parents {} fod_package/
 
-          echo "=== Copying compiled binaries ==="
-          BIN_FILES=$(find . -type f -name "*.dll" -o -name "*.exe" -o -name "*.pdb" | grep -v scancentral || true)
+          echo "=== Copying prebuilt binaries from repo ==="
+          BIN_FILES=$(find . -type f \\( -name "*.dll" -o -name "*.exe" -o -name "*.pdb" \\) | grep -v scancentral || true)
           if [ -n "$BIN_FILES" ]; then
               echo "$BIN_FILES" | xargs -I {} cp --parents {} fod_package/
           else
-              echo "No binaries found in repo!"
+              echo "No binaries found in repo. Did you commit the bin/ folder?"
               exit 1
           fi
 
-          "${SCANCENTRAL_PATH}" package -bt none -cp fod_package -o output.zip
+          echo "=== Creating ScanCentral package ==="
+          "${SCANCENTRAL_PATH}" package -bt none -o output.zip -bf $(find . -name "*.csproj" | head -n 1)
+
+          echo "=== Package contents ==="
           unzip -l output.zip | grep -E "\\.dll|\\.exe|\\.pdb" || true
         '''
       }
