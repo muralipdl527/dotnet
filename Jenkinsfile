@@ -20,6 +20,13 @@ pipeline {
       }
     }
 
+    stage('Set Permissions') {
+    steps {
+        sh 'chmod +x ./bin/scancentral'
+    }
+}
+
+
     stage('Prep ScanCentral CLI') {
       steps {
         sh '''
